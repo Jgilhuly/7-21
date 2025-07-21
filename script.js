@@ -60,8 +60,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = formObject.name?.trim();
             const email = formObject.email?.trim();
             const message = formObject.message?.trim();
+            const subject = formObject.subject?.trim();
 
-            if (!name || !email || !message) {
+            if (!name || !email || !message || !subject) {
                 alert('Please fill in all required fields.');
                 return;
             }
@@ -71,20 +72,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Simulate form submission
+            // Submit to backend
             const submitButton = this.querySelector('button[type="submit"]');
             const originalText = submitButton.textContent;
             
             submitButton.textContent = 'Sending...';
             submitButton.disabled = true;
 
-            // Simulate API call delay
-            setTimeout(() => {
-                alert(`Thank you, ${name}! We've received your message and will get back to you within 24 hours.`);
-                this.reset();
+            // Send to Python backend
+            fetch('/api/contact', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formObject)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    this.reset();
+                } else {
+                    alert(data.error || 'Something went wrong. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Something went wrong. Please try again.');
+            })
+            .finally(() => {
                 submitButton.textContent = originalText;
                 submitButton.disabled = false;
-            }, 1500);
+            });
         });
     }
 
@@ -110,7 +129,37 @@ document.addEventListener('DOMContentLoaded', function() {
         item.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
         observer.observe(item);
     });
+
+    // Load bakery hours and status
+    loadBakeryStatus();
 });
+
+// Load bakery open/closed status
+function loadBakeryStatus() {
+    fetch('/api/hours')
+        .then(response => response.json())
+        .then(data => {
+            updateBakeryStatus(data);
+        })
+        .catch(error => {
+            console.log('Could not load bakery status:', error);
+        });
+}
+
+// Update the UI with bakery status
+function updateBakeryStatus(data) {
+    // Add status indicator to the navbar
+    const navbar = document.querySelector('.nav-container');
+    if (navbar && !document.querySelector('.status-indicator')) {
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status-indicator';
+        statusDiv.innerHTML = `
+            <span class="status-dot ${data.is_open ? 'open' : 'closed'}"></span>
+            <span class="status-text">${data.is_open ? 'Open Now' : 'Closed'}</span>
+        `;
+        navbar.appendChild(statusDiv);
+    }
+}
 
 // Email validation helper function
 function isValidEmail(email) {
@@ -214,6 +263,45 @@ const additionalCSS = `
 
 .hamburger.active .bar:nth-child(3) {
     transform: translateY(-8px) rotate(-45deg);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.open {
+    background: #4CAF50;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+}
+
+.status-dot.closed {
+    background: #f44336;
+    box-shadow: 0 0 6px rgba(244, 67, 54, 0.6);
+}
+
+.status-text {
+    color: white;
+    font-family: 'Poppins', sans-serif;
+}
+
+@media (max-width: 768px) {
+    .status-indicator {
+        display: none;
+    }
 }
 `;
 
